@@ -15,13 +15,13 @@ STOCK_API_KEY = os.environ.get("STOCK_API_KEY")
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 
 SYSTEM_PROMPT = (
-    "You are Thinko, a brilliant AI assistant. "
-    "Use the given live data properly and answer clearly."
+    "You are Thinko, a smart and friendly AI assistant. "
+    "Use live data only when relevant. Otherwise answer normally."
 )
 
 users_chats = {}
 
-# ================= SEARCH (SERP API) =================
+# ================= SEARCH =================
 def search_web(query):
     try:
         url = "https://serpapi.com/search.json"
@@ -30,18 +30,17 @@ def search_web(query):
             "api_key": SERP_API_KEY,
             "num": 3
         }
-
         res = requests.get(url, params=params).json()
 
         results = []
         for item in res.get("organic_results", []):
             results.append(f"{item.get('title')} - {item.get('link')}")
 
-        return "\n".join(results) if results else "No search results found."
+        return "\n".join(results) if results else ""
     except:
-        return "Search error"
+        return ""
 
-# ================= NEWS (GNEWS) =================
+# ================= NEWS =================
 def get_news():
     try:
         url = f"https://gnews.io/api/v4/search?q=india&lang=en&apikey={NEWS_API_KEY}"
@@ -49,13 +48,13 @@ def get_news():
 
         articles = res.get("articles", [])
         if not articles:
-            return "No latest news available"
+            return ""
 
         return "\n".join([a["title"] for a in articles[:3]])
     except:
-        return "News error"
+        return ""
 
-# ================= WEATHER (WEATHERAPI) =================
+# ================= WEATHER =================
 def get_weather(city="Chennai"):
     try:
         url = f"http://api.weatherapi.com/v1/current.json?key={WEATHER_API_KEY}&q={city}"
@@ -66,9 +65,9 @@ def get_weather(city="Chennai"):
 
         return f"{city}: {temp}°C, {desc}"
     except:
-        return "Weather error"
+        return ""
 
-# ================= STOCK (ALPHA VANTAGE) =================
+# ================= STOCK =================
 def get_stock(symbol="AAPL"):
     try:
         url = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={symbol}&apikey={STOCK_API_KEY}"
@@ -77,7 +76,7 @@ def get_stock(symbol="AAPL"):
         price = res["Global Quote"]["05. price"]
         return f"{symbol} price: ${price}"
     except:
-        return "Stock error"
+        return ""
 
 # ================= ROUTES =================
 
@@ -124,28 +123,41 @@ def chat():
 
     chat_history = users_chats[user_email][chat_id]
 
-    # ================= SMART API =================
+    # ================= SMART ROUTING =================
     msg = user_message.lower()
     extra_context = ""
 
-    if "weather" in msg or "temperature" in msg:
+    # Greeting fix
+    if msg in ["hi", "hello", "hey"]:
+        extra_context = ""
+
+    # Weather
+    elif any(word in msg for word in ["weather", "temperature", "climate", "rain", "hot", "cold"]):
         extra_context = get_weather()
 
-    elif "news" in msg:
+    # News
+    elif any(word in msg for word in ["news", "headline", "breaking"]):
         extra_context = get_news()
 
-    elif "stock" in msg or "price" in msg:
+    # Stock
+    elif any(word in msg for word in ["stock", "share", "price", "market"]):
         extra_context = get_stock()
 
-    else:
+    # Default search
+    elif len(msg) > 5:
         extra_context = search_web(user_message)
 
     # ================= AI =================
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + chat_history
 
+    if extra_context:
+        content = f"{user_message}\n\nLive Data:\n{extra_context}"
+    else:
+        content = user_message
+
     messages.append({
         "role": "user",
-        "content": f"{user_message}\n\nLive Data:\n{extra_context}"
+        "content": content
     })
 
     try:
