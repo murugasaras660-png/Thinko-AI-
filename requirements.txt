@@ -1,7 +1,0 @@
-# Updated requirements.txt
-flask>=3.0.0
-requests
-gunicorn
-torch       
-transformers
-certifi     
